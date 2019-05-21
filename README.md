@@ -19,6 +19,7 @@ Test variables:
 
 ClusterManager | useLocalConsumer? | DeliveryOptions | DeliveryMethod | # of round trips
 -------------- | ----------------- | --------------- | -------------- | ----------------:
+No cluster | consumer | default | send-reply | 10,133,933
 No cluster | consumer | default | send-send | 11,515,381
 No cluster | consumer | localOnly | send-reply | 10,983,083
 No cluster | consumer | localOnly | send-send | 12,033,354
