@@ -239,10 +239,15 @@ public class EventbusTest {
                 final AtomicLong count = new AtomicLong(0);
                 final long duration = (Long) message.body();
                 final long startTime = System.nanoTime();
+                final String replyAddress = message.toString();
 
                 switch (testVariables.deliveryMethod) {
                     case Send_Reply: sendReply(isFinished, count, duration, startTime); break;
-                    case Send_Send: sendSend(message.toString(), isFinished, count, duration, startTime); break;
+                    case Send_Send:
+                        if (testVariables.useLocalConsumer) vertx.eventBus().localConsumer(replyAddress, sendSendHandler(replyAddress, isFinished, count, duration, startTime));
+                        else vertx.eventBus().consumer(replyAddress, sendSendHandler(replyAddress, isFinished, count, duration, startTime));
+                        sendSend(replyAddress);
+                        break;
                     default: throw new IllegalStateException();
                 }
             };
@@ -265,22 +270,19 @@ public class EventbusTest {
             };
         }
 
-        private void sendSend(String replyAddress, AtomicBoolean isFinished, AtomicLong count, long duration, long startTime) {
-            MessageConsumer<String> messageConsumer = testVariables.useLocalConsumer ? vertx.eventBus().localConsumer(replyAddress) : vertx.eventBus().consumer(replyAddress);
-            messageConsumer.handler(sendSendHandler(messageConsumer, isFinished, count, duration, startTime));
+        private void sendSend(String replyAddress) {
             vertx.eventBus().send("SEND_SEND", MESSAGE, new DeliveryOptions(testVariables.deliveryOptions).addHeader("replyAddress", replyAddress));
         }
 
-        private Handler<Message<String>> sendSendHandler(MessageConsumer<String> originalConsumer, AtomicBoolean isFinished, AtomicLong count, long duration, long startTime) {
+        private Handler<Message<Object>> sendSendHandler(String replyAddress, AtomicBoolean isFinished, AtomicLong count, long duration, long startTime) {
             return message -> {
-                originalConsumer.unregister();
                 if (MESSAGE.equals(message.body())) count.incrementAndGet();
                 else logger.warn("Incorrect reply message");
 
                 if (System.nanoTime() - startTime >= duration * 1000000000L) {
                     if (!isFinished.getAndSet(true)) vertx.eventBus().send("COLLECT", count.get(), testVariables.deliveryOptions);
                 } else {
-                    sendSend(message.toString(), isFinished, count, duration, startTime);
+                    sendSend(replyAddress);
                 }
             };
         }
